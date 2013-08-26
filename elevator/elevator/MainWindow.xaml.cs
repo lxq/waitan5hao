@@ -24,11 +24,14 @@ namespace elevator
     /// </summary>
     struct EvelatorInfo
     {
-        public int updown;//1-up,2-down
+        public bool up;
+        public bool down;
         /// <summary>
         /// 楼层号：从１开始
         /// </summary>
         public int floor;
+        //1-open,2-close,
+        public int door;
         /// <summary>
         /// 与电梯侧通信状态：true－正常
         /// </summary>
@@ -111,25 +114,9 @@ namespace elevator
         {
             InitializeComponent();
 
-            mCurInfo.floor = 1;
-            mCurInfo.angle = -90.0;
-            mLastInfo.floor = 1;
-            mLastInfo.angle = -90.0;
 
-            mFloorAngle = 180.0 / (mMaxFloor - 1);
-            int autoIterval = 100;
-            mAutoAngle = mFloorAngle / mFloorTime * autoIterval;
-
-
+            InitParams();
             //InitSerialPort();
-
-            mAutoTimer.Interval = new TimeSpan(0, 0, 0, 0,autoIterval);
-            mAutoTimer.IsEnabled = true;
-            mAutoTimer.Tick += new EventHandler(TimerAuto);
-
-            mSendTimer.Interval = new TimeSpan(0, 0, 0, 0, mFloorTime/4);
-            mSendTimer.IsEnabled = true;
-            mSendTimer.Tick += new EventHandler(TimerSend);
         }
 
         private void Window_Loaded(object sender, System.Windows.RoutedEventArgs e)
@@ -156,22 +143,6 @@ namespace elevator
         	// 退出全屏
 			
         }
-        private void Button_Click(object sender, System.Windows.RoutedEventArgs e)
-        {
-            mCurInfo.floor += 1;
-            if (mCurInfo.floor > mMaxFloor)
-            {
-                mCurInfo.floor = 0;
-            }
-        }
-        private void Button_Click_1(object sender, System.Windows.RoutedEventArgs e)
-        {
-            mCurInfo.floor -= 1;
-            if (mCurInfo.floor < 1)
-            {
-                mCurInfo.floor = 1;
-            }
-        }
 
         /// <summary>
         /// 更新显示
@@ -186,22 +157,36 @@ namespace elevator
             if (info.floor < 1)
                 info.floor = 1;
 
+            double angle = (info.floor-1) * mFloorAngle - 90;
 
-            double angle = info.floor * mFloorAngle - 90;
+            if (info.modify == 1)
+            {
+                //TODO:show....
+                return;
+            }
 
-            if (info.floor != mLastInfo.floor)
+
+
+            if (info.door == 1)//电梯打开
             {
+                //指到特定楼层
+                info.angle = angle;
             }
-            else
+            else if (info.up)
             {
-                //加入动态显示
-                mCurInfo.angle += mAutoAngle;
+                info.angle += mAutoAngle;
             }
+            else if (info.down)
+            {
+                info.angle -= mAutoAngle;
+            }
+            if (info.angle + 90 < 0.000000001)
+                info.angle = -90.0;
+            if (info.angle - 90 > 0.000000001)
+                info.angle = 90.0;
 
             mRotate.Angle = info.angle;
             mPointer.RenderTransform = mRotate;
-
-            mLastInfo = info;
         }
 
         void TimerAuto(object sender, EventArgs e)
@@ -218,6 +203,32 @@ namespace elevator
         {
 
         }
+
+        private void InitParams()
+        {
+            mCurInfo.floor = 1;
+            mCurInfo.angle = -90.0;
+            mLastInfo.floor = 1;
+            mLastInfo.angle = -90.0;
+
+            mFloorAngle = 180.0 / (mMaxFloor - 1);
+            int autoIterval = 100;
+            mAutoAngle = mFloorAngle / mFloorTime * autoIterval;
+
+            //load params
+
+
+
+            ////
+            mAutoTimer.Interval = new TimeSpan(0, 0, 0, 0, autoIterval);
+            mAutoTimer.IsEnabled = true;
+            mAutoTimer.Tick += new EventHandler(TimerAuto);
+
+            mSendTimer.Interval = new TimeSpan(0, 0, 0, 0, mFloorTime / 4);
+            //mSendTimer.IsEnabled = true;
+            mSendTimer.Tick += new EventHandler(TimerSend);
+       }
+
 
        private void InitSerialPort()
         {
@@ -302,6 +313,38 @@ namespace elevator
             catch (System.Exception ex)
             {
                 MessageBox.Show(ex.Message);
+            }
+        }
+
+        private void btnClose_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            mCurInfo.door = 2;
+        }
+
+        private void btnOpen_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            mCurInfo.door = 1;
+        }
+
+        private void btnUp_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            mCurInfo.floor += 1;
+            mCurInfo.up = true;
+            mCurInfo.down = false;
+            if (mCurInfo.floor > mMaxFloor)
+            {
+                mCurInfo.floor = mMaxFloor;
+            }
+        }
+
+        private void btnDown_Click(object sender, System.Windows.RoutedEventArgs e)
+        {
+            mCurInfo.floor -= 1;
+            mCurInfo.up = false;
+            mCurInfo.down = true;
+            if (mCurInfo.floor <= 0)
+            {
+                mCurInfo.floor = 1;
             }
         }
 
