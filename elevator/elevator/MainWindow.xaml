@@ -3,8 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="MainWindow" Height="463" Width="668" WindowStartupLocation="CenterScreen" Loaded="Window_Loaded" KeyUp="Window_KeyUp" Closed="Window_Closed">
     <Grid>
-    	<Image Margin="0,0,0,0" Source="pack://siteoforigin:,,,/电梯背景.png" Stretch="Fill"/>
-    	<Image x:Name="mPointer" Margin="0,0,0,0" Source="pack://siteoforigin:,,,/电梯指针.png" Stretch="Fill" RenderTransformOrigin="0.506,0.692"/>
+    	<Image Margin="0,0,0,0" Source="background.png" Stretch="Fill"/>
+    	<Image x:Name="mPointer" Margin="0,0,0,0" Source="pointer.png" Stretch="Fill" RenderTransformOrigin="0.506,0.692"/>
     	<Button x:Name="btnUp" Content="UP" HorizontalAlignment="Left" Height="28.654" Margin="282.542,341.922,0,0" VerticalAlignment="Top" Width="100.289" Click="btnUp_Click"/>
     	<Button x:Name="btnDown" Content="Down" HorizontalAlignment="Left" Height="28.654" Margin="285.228,384.922,0,0" VerticalAlignment="Top" Width="97.603" Click="btnDown_Click"/>
     	<Button x:Name="btnOpen" Content="open" HorizontalAlignment="Left" Height="28.654" Margin="418,341.922,0,0" VerticalAlignment="Top" Width="81" Click="btnOpen_Click"/>
