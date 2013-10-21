@@ -11,6 +11,8 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using System.Threading.Tasks;
+
 
 using System.IO.Ports; //跟串口相关，不能只是引用system.IO
 using System.Threading; //跟串口相关，线程的引入
@@ -64,10 +66,9 @@ namespace elevator
     /// </summary>
     public partial class MainWindow : Window
     {      
-        
-//         //委托；此为重点,更新界面
-//         delegate void HandleInterfaceUpdateDelagate(ref EvelatorInfo info);
-//         HandleInterfaceUpdateDelagate interfaceUpdateHandle;
+          //委托；此为重点,更新界面
+         delegate void HandleInterfaceUpdateDelagate(double angle);
+         HandleInterfaceUpdateDelagate interfaceUpdateHandle;
         /// <summary>
         /// pointer rotate
         /// </summary>
@@ -112,6 +113,9 @@ namespace elevator
             mSendCmd[1] = 0xFF;//发送主机地址
             mSendCmd[2] = 0x00;//目标从机地址
             mSendCmd[3] = 0xFE;
+
+            //因为要访问ui资源，所以需要使用invoke方式同步ui
+            interfaceUpdateHandle = new HandleInterfaceUpdateDelagate(UpdateEvelator);//实例化委托对象
 
             loadCfg();
             InitParams();
@@ -321,7 +325,7 @@ namespace elevator
                 return;
             mSerialPort.Read(mReadBuf, 0, mReadBuf.Length);
             ParseReadData(ref mReadBuf);
-            UpdateEvelator(CalcCurAngle(ref mCurInfo));            ;
+            CalcCurAngle(ref mCurInfo);
         }
 
         private void ParseReadData(ref byte[] buf)
@@ -361,7 +365,8 @@ namespace elevator
                 mCurFloor = 0;
                 mLastFloor = 0;
                 mCurSteps = 0;
-                SimpleLog.WriteLog("电梯发生故障。");
+             Dispatcher.Invoke(interfaceUpdateHandle, -90.0);
+               SimpleLog.WriteLog("电梯发生故障。");
                 return angle;
             }
 
@@ -372,6 +377,7 @@ namespace elevator
 
             //当前楼层刻度
             angle = (info.floor - 1) * mFloorAngle - 90;
+            //Dispatcher.Invoke(interfaceUpdateHandle, angle);
 
             if (!info.up && !info.down)//悬停
             {
@@ -404,6 +410,8 @@ namespace elevator
                 angle = -90.0;
             if (angle - 90 > 0.000000001)
                 angle = 90.0;
+
+            Dispatcher.Invoke(interfaceUpdateHandle, angle);
 
             return angle;
         }
