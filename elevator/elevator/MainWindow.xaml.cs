@@ -86,6 +86,7 @@ namespace elevator
         bool mDebugLog = false;
 
         //temp params from calculation
+        double mHalfAngle = 90.0;
         double mFloorAngle = 30.0;// 楼层角度
         double mStepAngle = 30.0/2;
         int mCurFloor = 0;
@@ -104,6 +105,8 @@ namespace elevator
         DispatcherTimer mSimulatorTimer = new System.Windows.Threading.DispatcherTimer();
         bool mIsSimulate = false;
         int mSimulateInterval = 0;
+        byte[][] mSimulateBuf = null;
+        int mSimulateCounter = 0;
 
         public MainWindow()
         {
@@ -121,20 +124,22 @@ namespace elevator
             //因为要访问ui资源，所以需要使用invoke方式同步ui
             interfaceUpdateHandle = new HandleInterfaceUpdateDelagate(UpdateEvelator);//实例化委托对象
 
-            loadCfg();
-            InitParams();
-            //InitSerialPort();
-            loadSimulateData();
         }
 
         private void Window_Loaded(object sender, System.Windows.RoutedEventArgs e)
         {
+            loadCfg();
+            InitParams();
+            InitSerialPort();
+            loadSimulateData();
+
+
             mWinRect.x = this.Left;
             mWinRect.y = this.Top;
             mWinRect.w = this.Width;
             mWinRect.h = this.Height;
             mFullScreen = true;
-            //FullScreen(mFullScreen);
+            FullScreen(mFullScreen);
         }
 
         private void Window_Closed(object sender, System.EventArgs e)
@@ -240,6 +245,7 @@ namespace elevator
             mCurInfo.floor = 1;
             UpdateEvelator(-90.0);
 
+            mHalfAngle = mTotalAngle / 2;
             mFloorAngle = mTotalAngle / (mMaxFloor - 1);
             mStepAngle = mFloorAngle / mTotalSteps;
 
@@ -371,12 +377,12 @@ namespace elevator
 
         private void CalcCurAngle(ref EvelatorInfo info)
         {
-            double angle = -90.0;
+            double angle = -mHalfAngle;
             
             if (info.error)//故障...
             {
-                mCurFloor = 0;
-                mLastFloor = 0;
+                mCurFloor = 1;
+                mLastFloor = 1;
                 mCurSteps = 0;
                 Dispatcher.Invoke(interfaceUpdateHandle, angle);
                 SimpleLog.WriteLog("电梯发生故障。");
@@ -387,16 +393,17 @@ namespace elevator
                 info.floor = mMaxFloor;
             if (info.floor < 1)
                 info.floor = 1;
+            mCurFloor = info.floor;
 
             //当前楼层刻度
-            angle = (info.floor - 1) * mFloorAngle - 90;
-            //Dispatcher.Invoke(interfaceUpdateHandle, angle);
+//            angle = (info.floor - 1) * mFloorAngle - 90;
+            angle = ((info.floor - 1) * mFloorAngle + (90.0 - mHalfAngle)) - 90;
 
             if (!info.up && !info.down)//悬停
             {
                 //指到特定楼层
-                mCurFloor = 0;
-                mLastFloor = 0;
+                mCurFloor = 1;
+                mLastFloor = 1;
                 mCurSteps = 0;
             }
             else
@@ -419,10 +426,10 @@ namespace elevator
                 }
             }
 
-            if (angle + 90 < 0.000000001)
-                angle = -90.0;
-            if (angle - 90 > 0.000000001)
-                angle = 90.0;
+            if (angle + mHalfAngle < 0.000000001)
+                angle = -mHalfAngle;
+            if (angle - mHalfAngle > 0.000000001)
+                angle = mHalfAngle;
 
             Dispatcher.Invoke(interfaceUpdateHandle, angle);
         }
@@ -445,7 +452,18 @@ namespace elevator
                 return;
             string[] strData = System.IO.File.ReadAllLines(AppDomain.CurrentDomain.BaseDirectory + "data.txt");
 
-            
+            mSimulateBuf = new byte[strData.Length][];
+            for (int i = 0; i < strData.Length; i++)
+            {
+                mSimulateBuf[i] = new byte[6];
+                string[] cmds = strData[i].Split(' ');
+                if (cmds.Length != 7)
+                    continue;
+                for (int j = 0; j < 6; j++)
+                {
+                    mSimulateBuf[i][j] =Convert.ToByte(cmds[j],16);
+                }
+            }
             
             //本地数据仿真
             mSimulatorTimer.Interval = new TimeSpan(0, 0, 0, 0, mSimulateInterval);
@@ -455,6 +473,12 @@ namespace elevator
 
         void TimerSimulator(object sender, EventArgs e)
         {
+            if (mSimulateCounter < 0 || mSimulateCounter >= mSimulateBuf.Length)
+                mSimulateCounter = 0;
+
+            if (!ParseReadData(ref mSimulateBuf[mSimulateCounter++]))
+                return;
+            CalcCurAngle(ref mCurInfo);
 
         }
 
