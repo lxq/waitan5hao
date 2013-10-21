@@ -79,6 +79,7 @@ namespace elevator
 
 
         //params from config loading
+        double mTotalAngle = 180.0;
         int mMaxFloor = 7; 
         int mTotalSteps = 2;
         int mStepTime = 1000;//毫秒
@@ -94,12 +95,15 @@ namespace elevator
         EvelatorInfo mCurInfo = new EvelatorInfo { };
 
 
-        DispatcherTimer mAutoTimer = new System.Windows.Threading.DispatcherTimer();
         DispatcherTimer mSendTimer = new System.Windows.Threading.DispatcherTimer();
 
         SerialPort mSerialPort = new SerialPort();
         byte[] mSendCmd = new byte[4];
         byte[] mReadBuf = new byte[6];
+
+        DispatcherTimer mSimulatorTimer = new System.Windows.Threading.DispatcherTimer();
+        bool mIsSimulate = false;
+        int mSimulateInterval = 0;
 
         public MainWindow()
         {
@@ -119,7 +123,8 @@ namespace elevator
 
             loadCfg();
             InitParams();
-            InitSerialPort();
+            //InitSerialPort();
+            loadSimulateData();
         }
 
         private void Window_Loaded(object sender, System.Windows.RoutedEventArgs e)
@@ -129,7 +134,7 @@ namespace elevator
             mWinRect.w = this.Width;
             mWinRect.h = this.Height;
             mFullScreen = true;
-            FullScreen(mFullScreen);
+            //FullScreen(mFullScreen);
         }
 
         private void Window_Closed(object sender, System.EventArgs e)
@@ -209,10 +214,16 @@ namespace elevator
             if (null != obj)
             {
                 JsonObjectCollection prms = obj as JsonObjectCollection;
+
+                mTotalAngle = (double)((JsonNumericValue)prms["totalangle"]).Value;
                 mMaxFloor = (int)((JsonNumericValue)prms["maxfloor"]).Value;
                 mTotalSteps = (int)((JsonNumericValue)prms["totalSteps"]).Value;
                 mStepTime = (int)((JsonNumericValue)prms["stepTime"]).Value;
+
                 mDebugLog = (bool)((JsonBooleanValue)prms["log"]).Value;
+
+                mIsSimulate = (bool)((JsonBooleanValue)prms["simulateSwitch"]).Value;
+                mSimulateInterval = (int)((JsonNumericValue)prms["simualteInterval"]).Value;
             }
 
             if (mDebugLog)
@@ -229,13 +240,13 @@ namespace elevator
             mCurInfo.floor = 1;
             UpdateEvelator(-90.0);
 
-            mFloorAngle = 180.0 / (mMaxFloor - 1);
+            mFloorAngle = mTotalAngle / (mMaxFloor - 1);
             mStepAngle = mFloorAngle / mTotalSteps;
 
             //发送频率为步长时间
             mSendTimer.Interval = new TimeSpan(0, 0, 0, 0, mStepTime);
-            mSendTimer.IsEnabled = true;
             mSendTimer.Tick += new EventHandler(TimerSend);
+            mSendTimer.IsEnabled = true;
         }
 
 
@@ -319,22 +330,24 @@ namespace elevator
             mSerialPort.Write(mSendCmd, 0, mSendCmd.Length);
         }
 
+
         private void ComDataReceivedEventHandler(object sender, SerialDataReceivedEventArgs e)
         {
             if (!mSerialPort.IsOpen)
                 return;
             mSerialPort.Read(mReadBuf, 0, mReadBuf.Length);
-            ParseReadData(ref mReadBuf);
+            if (!ParseReadData(ref mReadBuf))
+                return;
             CalcCurAngle(ref mCurInfo);
         }
 
-        private void ParseReadData(ref byte[] buf)
+        private bool ParseReadData(ref byte[] buf)
         {
             if (buf[0] != 0xfa || buf[1] != mSendCmd[2] || buf[2] != 0xff || buf[buf.Length - 1] != 0xfe)
             {
                 SimpleLog.WriteLog("接收数据错。");
                 LogReadData();
-                return;
+                return false;
             }
 
             if (mDebugLog)
@@ -353,21 +366,21 @@ namespace elevator
             mCurInfo.error = ((buf[4] >> 4 & 0x01) != 0x00);
             mCurInfo.modify = ((buf[4] >> 5 & 0x01) != 0x00);
 
+            return true;
         }
 
-        private double CalcCurAngle(ref EvelatorInfo info)
+        private void CalcCurAngle(ref EvelatorInfo info)
         {
             double angle = -90.0;
             
             if (info.error)//故障...
             {
-                //TODO:log
                 mCurFloor = 0;
                 mLastFloor = 0;
                 mCurSteps = 0;
-             Dispatcher.Invoke(interfaceUpdateHandle, -90.0);
-               SimpleLog.WriteLog("电梯发生故障。");
-                return angle;
+                Dispatcher.Invoke(interfaceUpdateHandle, angle);
+                SimpleLog.WriteLog("电梯发生故障。");
+                return;
             }
 
             if (info.floor > mMaxFloor)
@@ -412,8 +425,6 @@ namespace elevator
                 angle = 90.0;
 
             Dispatcher.Invoke(interfaceUpdateHandle, angle);
-
-            return angle;
         }
 
         private void UpdateEvelator(double angle)
@@ -428,6 +439,24 @@ namespace elevator
             SimpleLog.WriteLog(str);
         }
 
+        void loadSimulateData()
+        {
+            if (!mIsSimulate)
+                return;
+            string[] strData = System.IO.File.ReadAllLines(AppDomain.CurrentDomain.BaseDirectory + "data.txt");
+
+            
+            
+            //本地数据仿真
+            mSimulatorTimer.Interval = new TimeSpan(0, 0, 0, 0, mSimulateInterval);
+            mSimulatorTimer.Tick += new EventHandler(TimerSimulator);
+            mSimulatorTimer.IsEnabled = true;
+        }
+
+        void TimerSimulator(object sender, EventArgs e)
+        {
+
+        }
 
 //         private void ReceiveThread()
 //         {
