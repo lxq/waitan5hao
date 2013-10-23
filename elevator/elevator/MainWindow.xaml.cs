@@ -83,6 +83,7 @@ namespace elevator
         int mMaxFloor = 7; 
         int mTotalSteps = 2;
         int mStepTime = 1000;//毫秒
+        int mStopStep = 1;//停中第几个刻度上（反向）
         bool mDebugLog = false;
 
         //temp params from calculation
@@ -224,6 +225,9 @@ namespace elevator
                 mMaxFloor = (int)((JsonNumericValue)prms["maxfloor"]).Value;
                 mTotalSteps = (int)((JsonNumericValue)prms["totalSteps"]).Value;
                 mStepTime = (int)((JsonNumericValue)prms["stepTime"]).Value;
+                mStopStep = (int)((JsonNumericValue)prms["stopStep"]).Value;
+                if (mStopStep > mTotalSteps || mStopStep < 0)
+                    mStopStep = 1;
 
                 mDebugLog = (bool)((JsonBooleanValue)prms["log"]).Value;
 
@@ -416,8 +420,8 @@ namespace elevator
                 else
                 {
                     mCurSteps++;
-                    if (mCurSteps > mTotalSteps - 1)
-                        mCurSteps = mTotalSteps - 1;
+                    if (mCurSteps > mTotalSteps - mStopStep)
+                        mCurSteps = mTotalSteps - mStopStep;
                     if (mCurInfo.up)
                         angle += mCurSteps * mStepAngle;
                     if (mCurInfo.down)
