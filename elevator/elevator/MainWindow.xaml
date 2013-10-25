@@ -5,6 +5,6 @@
     <Grid>
     	<Image Margin="0,0,0,0" Source="background.png" Stretch="Fill"/>
     	<Image x:Name="mTick" Margin="0,0,0,0" Source="tick.png" Stretch="Fill"/>
-    	<Image x:Name="mPointer" Margin="0,41,0,-41" Source="pointer.png" Stretch="Fill" RenderTransformOrigin="0.501,0.799"/>
+    	<Image x:Name="mPointer" Margin="0,61,0,-61" Source="pointer.png" Stretch="Fill" RenderTransformOrigin="0.501,0.799"/>
     </Grid>
 </Window>

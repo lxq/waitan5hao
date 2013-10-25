@@ -93,6 +93,7 @@ namespace elevator
         int mCurFloor = 0;
         int mLastFloor = 0;
         int mCurSteps = 0;
+        bool mIsFirstRunning = true;
 
         EvelatorInfo mCurInfo = new EvelatorInfo { };
 
@@ -385,19 +386,33 @@ namespace elevator
             
             if (info.error)//故障...
             {
-                mCurFloor = 1;
-                mLastFloor = 1;
-                mCurSteps = 0;
-                Dispatcher.Invoke(interfaceUpdateHandle, angle);
-                SimpleLog.WriteLog("电梯发生故障。");
+                //mCurFloor = 1;
+                //mLastFloor = 1;
+                //mCurSteps = 0;
+                //Dispatcher.Invoke(interfaceUpdateHandle, angle);
+                //SimpleLog.WriteLog("电梯发生故障。");
                 return;
             }
-
-            if (info.floor > mMaxFloor)
-                info.floor = mMaxFloor;
-            if (info.floor < 1)
-                info.floor = 1;
+            if (info.floor > mMaxFloor || info.floor < 1)
+            {
+                return;
+            }
+            //if (info.floor > mMaxFloor)
+            //    info.floor = mMaxFloor;
+            //if (info.floor < 1)
+            //    info.floor = 1;
             mCurFloor = info.floor;
+            if (!mIsFirstRunning && Math.Abs(mCurFloor - mLastFloor) > 1)
+            {
+//                mLastFloor = mCurFloor;
+                mIsFirstRunning = false;
+               return;
+            }  
+            mIsFirstRunning = false;
+            //if (mCurFloor > 0 && Math.Abs(info.floor - mCurFloor) > 1)
+            //{
+            //    return;
+            //}
 
             //当前楼层刻度
 //            angle = (info.floor - 1) * mFloorAngle - 90;
@@ -406,8 +421,7 @@ namespace elevator
             if (!info.up && !info.down)//悬停
             {
                 //指到特定楼层
-                mCurFloor = 1;
-                mLastFloor = 1;
+                mLastFloor = mCurFloor;
                 mCurSteps = 0;
             }
             else
