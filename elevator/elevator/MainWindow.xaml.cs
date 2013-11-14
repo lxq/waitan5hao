@@ -215,6 +215,8 @@ namespace elevator
                 mSerialPort.Parity = (Parity)((JsonNumericValue)prms["parity"]).Value;
                 mSerialPort.DataBits = (int)((JsonNumericValue )prms["databits"]).Value;
                 mSerialPort.StopBits = (StopBits)((JsonNumericValue )prms["stopbits"]).Value;
+                mSerialPort.DtrEnable = (bool)((JsonBooleanValue)prms["dtr"]).Value;
+                mSerialPort.Handshake = (Handshake)((JsonNumericValue)prms["handshake"]).Value;
                 mSendCmd[2] = (byte)((JsonNumericValue)prms["address"]).Value;
             }
             obj = lst["prm"];
@@ -386,11 +388,11 @@ namespace elevator
             
             if (info.error)//故障...
             {
-                //mCurFloor = 1;
-                //mLastFloor = 1;
-                //mCurSteps = 0;
-                //Dispatcher.Invoke(interfaceUpdateHandle, angle);
-                //SimpleLog.WriteLog("电梯发生故障。");
+                mCurFloor = 1;
+                mLastFloor = 1;
+                mCurSteps = 0;
+                Dispatcher.Invoke(interfaceUpdateHandle, angle);
+                SimpleLog.WriteLog("电梯发生故障。");
                 return;
             }
             if (info.floor > mMaxFloor || info.floor < 1)
