@@ -358,8 +358,11 @@ namespace elevator
         {
             if (buf[0] != 0xfa || buf[1] != mSendCmd[2] || buf[2] != 0xff || buf[buf.Length - 1] != 0xfe)
             {
-                SimpleLog.WriteLog("接收数据错。");
-                LogReadData();
+                if (mDebugLog)
+                {
+                    SimpleLog.WriteLog("接收数据错。");
+                    LogReadData();
+                }
                 return false;
             }
 
@@ -388,11 +391,15 @@ namespace elevator
             
             if (info.error)//故障...
             {
-                mCurFloor = 1;
-                mLastFloor = 1;
-                mCurSteps = 0;
-                Dispatcher.Invoke(interfaceUpdateHandle, angle);
-                SimpleLog.WriteLog("电梯发生故障。");
+                //注释以下内容：表示故障不处理，保持当前状态. 2013-12-2
+                //mCurFloor = 1;
+                //mLastFloor = 1;
+                //mCurSteps = 0;
+                //Dispatcher.Invoke(interfaceUpdateHandle, angle);
+                if (mDebugLog)
+                {
+                    SimpleLog.WriteLog("电梯发生故障。");
+                }
                 return;
             }
             if (info.floor > mMaxFloor || info.floor < 1)
