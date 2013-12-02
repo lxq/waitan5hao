@@ -90,8 +90,8 @@ namespace elevator
         double mHalfAngle = 90.0;
         double mFloorAngle = 30.0;// 楼层角度
         double mStepAngle = 30.0/2;
-        int mCurFloor = 0;
-        int mLastFloor = 0;
+        int mCurFloor = 1;
+        int mLastFloor = 1;
         int mCurSteps = 0;
         bool mIsFirstRunning = true;
 
@@ -109,6 +109,10 @@ namespace elevator
         int mSimulateInterval = 0;
         byte[][] mSimulateBuf = null;
         int mSimulateCounter = 0;
+
+
+        DispatcherTimer mAutoTimer = new System.Windows.Threading.DispatcherTimer();
+        int mAutoStepTime = 0;
 
         public MainWindow()
         {
@@ -132,7 +136,7 @@ namespace elevator
         {
             loadCfg();
             InitParams();
-            InitSerialPort();
+//            InitSerialPort();
             loadSimulateData();
 
 
@@ -141,7 +145,7 @@ namespace elevator
             mWinRect.w = this.Width;
             mWinRect.h = this.Height;
             mFullScreen = true;
-            FullScreen(mFullScreen);
+//            FullScreen(mFullScreen);
         }
 
         private void Window_Closed(object sender, System.EventArgs e)
@@ -226,6 +230,7 @@ namespace elevator
 
                 mTotalAngle = (double)((JsonNumericValue)prms["totalangle"]).Value;
                 mMaxFloor = (int)((JsonNumericValue)prms["maxfloor"]).Value;
+                mAutoStepTime = (int)((JsonNumericValue)prms["autoStepTime"]).Value;
                 mTotalSteps = (int)((JsonNumericValue)prms["totalSteps"]).Value;
                 mStepTime = (int)((JsonNumericValue)prms["stepTime"]).Value;
                 mStopStep = (int)((JsonNumericValue)prms["stopStep"]).Value;
@@ -260,6 +265,10 @@ namespace elevator
             mSendTimer.Interval = new TimeSpan(0, 0, 0, 0, mStepTime);
             mSendTimer.Tick += new EventHandler(TimerSend);
             mSendTimer.IsEnabled = true;
+
+            mAutoTimer.Interval = new TimeSpan(0, 0, 0, 0, mAutoStepTime);
+            mAutoTimer.Tick += new EventHandler(TimerAuto);
+            mAutoTimer.IsEnabled = false;
         }
 
 
@@ -406,10 +415,7 @@ namespace elevator
             {
                 return;
             }
-            //if (info.floor > mMaxFloor)
-            //    info.floor = mMaxFloor;
-            //if (info.floor < 1)
-            //    info.floor = 1;
+
             mCurFloor = info.floor;
             if (!mIsFirstRunning && Math.Abs(mCurFloor - mLastFloor) > 1)
             {
@@ -424,41 +430,66 @@ namespace elevator
             //}
 
             //当前楼层刻度
-//            angle = (info.floor - 1) * mFloorAngle - 90;
-            angle = ((info.floor - 1) * mFloorAngle + (90.0 - mHalfAngle)) - 90;
+            //angle = ((info.floor - 1) * mFloorAngle + (90.0 - mHalfAngle)) - 90;
+            //if (angle + mHalfAngle < 0.000000001)
+            //    angle = -mHalfAngle;
+            //if (angle - mHalfAngle > 0.000000001)
+            //    angle = mHalfAngle;
+
 
             if (!info.up && !info.down)//悬停
             {
-                //指到特定楼层
                 mLastFloor = mCurFloor;
                 mCurSteps = 0;
+                //指到特定楼层
+                angle = (info.floor - 1) * mFloorAngle - mHalfAngle;
+                Dispatcher.Invoke(interfaceUpdateHandle, angle);
             }
             else
             {
+                //if (mCurFloor != mLastFloor)
+                //{
+                //    mLastFloor = mCurFloor;
+                //    mCurSteps = 0;
+                //}
+                //else
+                //{
+                //    mCurSteps++;
+                //    if (mCurSteps > mTotalSteps - mStopStep)
+                //        mCurSteps = mTotalSteps - mStopStep;
+                //    if (mCurInfo.up)
+                //        angle += mCurSteps * mStepAngle;
+                //    if (mCurInfo.down)
+                //        angle -= mCurSteps * mStepAngle;
+                //}
+                //上面一段为原来实时接近模拟，注释后采用如下进行达到不同层时的自动时间跳转动画
                 if (mCurFloor != mLastFloor)
                 {
-                    mLastFloor = mCurFloor;
-                    mCurSteps = 0;
-                }
-                else
-                {
-                    mCurSteps++;
-                    if (mCurSteps > mTotalSteps - mStopStep)
-                        mCurSteps = mTotalSteps - mStopStep;
-                    if (mCurInfo.up)
-                        angle += mCurSteps * mStepAngle;
-                    if (mCurInfo.down)
-                        angle -= mCurSteps * mStepAngle;
+                    mSendTimer.Stop();
+                    mSendTimer.IsEnabled = false;
+                    mAutoTimer.IsEnabled = true;
+                    mAutoTimer.Start();
+                    if (mIsSimulate)
+                    {
+                        mSimulatorTimer.IsEnabled = false;
+                        mSimulatorTimer.Stop();
+                    }
+                    //while (mAutoTimer.IsEnabled)
+                    //    Thread.Sleep(100);
 
+                    mLastFloor = mCurFloor;
+                    mAutoTimer.Stop();
+                    mAutoTimer.IsEnabled = false;
+                    mSendTimer.IsEnabled = true;
+                    mSendTimer.Start();
+                    if (mIsSimulate)
+                    {
+                        mSimulatorTimer.IsEnabled = true;
+                        mSimulatorTimer.Start();
+                    }
                 }
             }
 
-            if (angle + mHalfAngle < 0.000000001)
-                angle = -mHalfAngle;
-            if (angle - mHalfAngle > 0.000000001)
-                angle = mHalfAngle;
-
-            Dispatcher.Invoke(interfaceUpdateHandle, angle);
         }
 
         private void UpdateEvelator(double angle)
@@ -471,6 +502,23 @@ namespace elevator
         {
             string str = String.Format("接收数据：{0:X00} {1:X00} {2:X00} {3:X00} {4:X00} {5:X00} ", mReadBuf[0], mReadBuf[1], mReadBuf[2], mReadBuf[3], mReadBuf[4], mReadBuf[5]);
             SimpleLog.WriteLog(str);
+        }
+
+        void TimerAuto(object sender, EventArgs e)
+        {
+            mCurSteps++;
+            if (mCurSteps >= mTotalSteps)
+            {
+                mAutoTimer.Stop();
+                mAutoTimer.IsEnabled = false;
+                return;
+            }
+            double angle = (mLastFloor - 1) * mFloorAngle - mHalfAngle;
+            if (mCurInfo.up)
+                angle += mCurSteps * mStepAngle;
+            if (mCurInfo.down)
+                angle -= mCurSteps * mStepAngle;
+            Dispatcher.Invoke(interfaceUpdateHandle, angle);
         }
 
         void loadSimulateData()
